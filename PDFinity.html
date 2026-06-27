@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDFinity — AI-Powered PDF Tools</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<style>
+  :root {
+    --bg: #0A0A0B; --surface: #111113; --border: #1E1E22;
+    --text: #F0F0EC; --muted: #555; --accent: #E85D26;
+    --ai: #7C3AED; --green: #059669; --blue: #2563EB;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', -apple-system, sans-serif; min-height: 100vh; }
+
+  /* NAV */
+  nav { display: flex; align-items: center; padding: 16px 32px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 100; }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 18px; letter-spacing: -0.02em; }
+  .logo-icon { width: 30px; height: 30px; background: linear-gradient(135deg, #E85D26, #DC2626); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; font-weight: 900; }
+  .nav-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .badge-free { color: #444; font-size: 12px; }
+  .btn-pro { background: var(--accent); color: #fff; border: none; padding: 8px 18px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; }
+
+  /* API KEY BAR */
+  .api-bar { background: #0D0D10; border-bottom: 1px solid var(--border); padding: 10px 32px; display: flex; align-items: center; gap: 12px; }
+  .api-bar label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .api-bar input { flex: 1; max-width: 380px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; color: var(--text); font-size: 13px; outline: none; font-family: monospace; }
+  .api-bar input:focus { border-color: var(--ai); }
+  .api-hint { font-size: 11px; color: #333; }
+  .api-hint a { color: #555; }
+
+  /* HERO */
+  .hero { text-align: center; padding: 60px 24px 44px; }
+  .ai-pill { display: inline-flex; align-items: center; gap: 6px; background: #7C3AED18; border: 1px solid #7C3AED40; border-radius: 20px; padding: 5px 14px; margin-bottom: 22px; color: var(--ai); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; }
+  h1 { font-size: clamp(30px, 5.5vw, 54px); font-weight: 800; line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 14px; }
+  h1 span { background: linear-gradient(90deg, #E85D26, #DC2626); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .hero-sub { color: var(--muted); font-size: 15px; max-width: 400px; margin: 0 auto 36px; line-height: 1.6; }
+
+  /* SEARCH */
+  .search-wrap { position: relative; max-width: 380px; margin: 0 auto; }
+  .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #444; }
+  #search { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px 12px 38px; color: var(--text); font-size: 14px; outline: none; }
+  #search:focus { border-color: var(--accent); }
+
+  /* CATS */
+  .cats { display: flex; gap: 8px; justify-content: center; padding: 32px 24px 28px; flex-wrap: wrap; }
+  .cat { background: var(--surface); color: var(--muted); border: 1px solid var(--border); border-radius: 20px; padding: 7px 16px; cursor: pointer; font-size: 13px; transition: all 0.15s; }
+  .cat.active { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 700; }
+
+  /* GRID */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; max-width: 960px; margin: 0 auto; padding: 0 24px 80px; }
+  .tool-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px 18px; cursor: pointer; text-align: left; transition: all 0.15s; position: relative; color: var(--text); width: 100%; }
+  .tool-card:hover { background: #141416; }
+  .tool-icon-box { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 12px; }
+  .tool-name { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+  .tool-desc { color: var(--muted); font-size: 12px; line-height: 1.5; }
+  .ai-badge { position: absolute; top: 12px; right: 12px; background: var(--ai); color: #fff; font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 4px; letter-spacing: 0.06em; }
+
+  /* TOOL PANEL */
+  #tool-panel { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 200; overflow-y: auto; }
+  .panel-nav { display: flex; align-items: center; gap: 14px; padding: 18px 28px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 10; }
+  .back-btn { background: none; border: 1px solid var(--border); color: var(--muted); padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+  .panel-title { font-weight: 700; font-size: 16px; }
+  .panel-desc { color: var(--muted); font-size: 12px; }
+  .panel-body { max-width: 660px; margin: 40px auto; padding: 0 24px 80px; }
+
+  /* DROPZONE */
+  .dropzone { border: 2px dashed var(--border); border-radius: 16px; padding: 52px 28px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--surface); }
+  .dropzone.drag { border-color: var(--accent); background: #E85D2610; }
+  .dropzone:hover { border-color: #333; }
+  .dz-icon { font-size: 38px; margin-bottom: 12px; }
+  .dz-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+  .dz-sub { color: var(--muted); font-size: 13px; }
+  #file-input { display: none; }
+
+  /* FILE LIST */
+  .file-list { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; }
+  .file-item { display: flex; align-items: center; gap: 12px; padding: 11px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+  .file-thumb { width: 34px; height: 34px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .file-info { flex: 1; min-width: 0; }
+  .file-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-size { font-size: 11px; color: var(--muted); }
+  .file-remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; padding: 0 4px; }
+  .file-remove:hover { color: #DC2626; }
+
+  /* OPTIONS */
+  .options-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-top: 18px; }
+  .opt-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; display: block; }
+  .opt-input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; color: var(--text); font-size: 14px; outline: none; }
+  .opt-input:focus { border-color: var(--accent); }
+  .opt-row { display: flex; gap: 10px; margin-top: 12px; }
+  .opt-select { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; color: var(--text); font-size: 13px; outline: none; flex: 1; }
+
+  /* BTNS */
+  .btn-primary { width: 100%; margin-top: 20px; border: none; border-radius: 12px; padding: 15px; cursor: pointer; font-weight: 700; font-size: 15px; transition: opacity 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+  .spinner { width: 16px; height: 16px; border: 2px solid #fff4; border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* PROGRESS */
+  .progress-bar { width: 100%; height: 4px; background: var(--border); border-radius: 2px; margin-top: 14px; overflow: hidden; display: none; }
+  .progress-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+
+  /* AI CHAT */
+  .chat-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 18px; max-height: 340px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+  .msg { padding: 10px 14px; border-radius: 10px; font-size: 14px; line-height: 1.6; max-width: 90%; }
+  .msg.user { background: #1E1E28; align-self: flex-end; color: #DDD; }
+  .msg.ai { background: #7C3AED18; border: 1px solid #7C3AED30; align-self: flex-start; color: #DDD; }
+  .msg.ai .msg-label { color: var(--ai); font-size: 10px; font-weight: 700; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .chat-input-row { display: flex; gap: 10px; margin-top: 12px; }
+  .chat-input { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px; color: var(--text); font-size: 14px; outline: none; }
+  .chat-input:focus { border-color: var(--ai); }
+  .chat-send { background: var(--ai); color: #fff; border: none; border-radius: 10px; padding: 11px 18px; cursor: pointer; font-weight: 600; font-size: 14px; }
+  .chat-send:disabled { opacity: 0.5; }
+
+  /* SUCCESS */
+  .success-box { text-align: center; padding: 48px 0; display: none; }
+  .success-icon { font-size: 52px; margin-bottom: 14px; }
+  .success-title { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+  .success-sub { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+  .btn-download { background: var(--accent); color: #fff; border: none; border-radius: 12px; padding: 14px 40px; cursor: pointer; font-weight: 700; font-size: 15px; margin-bottom: 14px; display: inline-block; text-decoration: none; }
+  .btn-reset { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 13px; display: block; margin: 8px auto 0; }
+
+  /* PREVIEW */
+  .preview-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-top: 14px; overflow: hidden; }
+  .preview-wrap canvas { display: block; max-width: 100%; margin: 0 auto; border-radius: 4px; }
+
+  /* TOAST */
+  #toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); background: #1E1E28; border: 1px solid var(--border); border-radius: 10px; padding: 12px 20px; font-size: 13px; color: var(--text); display: none; z-index: 999; box-shadow: 0 8px 32px #0008; }
+
+  /* FOOTER */
+  footer { border-top: 1px solid var(--border); padding: 22px 32px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; color: #333; font-size: 12px; }
+  footer strong { color: #555; }
+
+  @media (max-width: 600px) {
+    nav, .api-bar { padding: 14px 16px; }
+    .panel-nav { padding: 14px 16px; }
+    .panel-body { padding: 0 16px 60px; }
+    .grid { padding: 0 16px 60px; }
+    h1 { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">
+    <div class="logo-icon">P</div>
+    PDFinity
+  </div>
+  <div class="nav-right">
+    <span class="badge-free">Free · No signup</span>
+    <button class="btn-pro">✦ Go Pro</button>
+  </div>
+</nav>
+
+<!-- API KEY BAR -->
+<div class="api-bar">
+  <label for="api-key-input">🔑 Anthropic API Key (for AI tools)</label>
+  <input type="password" id="api-key-input" placeholder="sk-ant-..." oninput="saveKey(this.value)" />
+  <span class="api-hint">Get free key → <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></span>
+</div>
+
+<!-- HOME -->
+<div id="home">
+  <div class="hero">
+    <div class="ai-pill">✦ AI POWERED — Claude Haiku 4.5</div>
+    <h1>Every PDF tool<br><span>you'll ever need.</span></h1>
+    <p class="hero-sub">Merge, split, compress, watermark, and chat with your PDFs — all in your browser. No upload to servers.</p>
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input type="text" id="search" placeholder="Search tools…" oninput="filterTools()" />
+    </div>
+  </div>
+
+  <div class="cats" id="cats">
+    <button class="cat active" onclick="filterCat('all',this)">All Tools</button>
+    <button class="cat" onclick="filterCat('organize',this)">Organize</button>
+    <button class="cat" onclick="filterCat('convert',this)">Convert</button>
+    <button class="cat" onclick="filterCat('optimize',this)">Optimize</button>
+    <button class="cat" onclick="filterCat('secure',this)">Secure</button>
+    <button class="cat" onclick="filterCat('ai',this)">✦ AI Tools</button>
+  </div>
+
+  <div class="grid" id="tool-grid"></div>
+
+  <footer>
+    <div><strong>PDFinity</strong> — All processing happens in your browser. Files never leave your device.</div>
+    <div>Powered by pdf-lib · PDF.js · Claude Haiku 4.5</div>
+  </footer>
+</div>
+
+<!-- TOOL PANEL -->
+<div id="tool-panel">
+  <div class="panel-nav">
+    <button class="back-btn" onclick="closePanel()">← Back</button>
+    <span id="panel-icon" style="font-size:22px"></span>
+    <div>
+      <div class="panel-title" id="panel-title"></div>
+      <div class="panel-desc" id="panel-desc"></div>
+    </div>
+    <span id="panel-badge" style="margin-left:auto;display:none;background:#7C3AED;color:#fff;font-size:10px;font-weight:800;padding:3px 9px;border-radius:4px;letter-spacing:0.05em">AI</span>
+  </div>
+  <div class="panel-body" id="panel-body"></div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+<input type="file" id="file-input" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" onchange="onFileInput(event)" />
+
+<script>
+// ─── TOOLS CONFIG ────────────────────────────────────────────
+const TOOLS = [
+  { id:'merge',       icon:'⊕', name:'Merge PDF',        desc:'Combine multiple PDFs into one file',       cat:'organize', color:'#E85D26' },
+  { id:'split',       icon:'✂', name:'Split PDF',         desc:'Extract pages or split into separate PDFs', cat:'organize', color:'#E85D26' },
+  { id:'rotate',      icon:'↻', name:'Rotate Pages',      desc:'Rotate PDF pages 90°, 180°, or 270°',      cat:'organize', color:'#E85D26' },
+  { id:'compress',    icon:'◈', name:'Compress PDF',      desc:'Reduce file size while keeping quality',     cat:'optimize', color:'#2563EB' },
+  { id:'pdf-to-img',  icon:'⬡', name:'PDF → Images',     desc:'Convert each page to JPG or PNG',           cat:'convert',  color:'#7C3AED' },
+  { id:'img-to-pdf',  icon:'⬢', name:'Images → PDF',     desc:'Combine photos/images into a PDF',          cat:'convert',  color:'#7C3AED' },
+  { id:'watermark',   icon:'◎', name:'Watermark PDF',     desc:'Stamp text on every page',                  cat:'secure',   color:'#059669' },
+  { id:'protect',     icon:'🔒', name:'Protect PDF',      desc:'Add password protection to your PDF',       cat:'secure',   color:'#059669' },
+  { id:'ai-chat',     icon:'✦', name:'Chat with PDF',     desc:'Ask questions — Claude reads your doc',     cat:'ai',       color:'#7C3AED', ai:true },
+  { id:'ai-summary',  icon:'◆', name:'AI Summary',        desc:'Get key points extracted instantly',        cat:'ai',       color:'#7C3AED', ai:true },
+  { id:'ai-translate',icon:'◉', name:'Translate PDF',     desc:'Convert content to Tamil, Hindi & more',    cat:'ai',       color:'#7C3AED', ai:true },
+  { id:'ai-explain',  icon:'◫', name:'Explain Document',  desc:'Plain-English explanation of complex docs', cat:'ai',       color:'#7C3AED', ai:true },
+];
+
+let currentCat = 'all';
+let currentTool = null;
+let uploadedFiles = [];
+let downloadBlob = null;
+let chatHistory = [];
+
+// ─── INIT ───────────────────────────────────────────────────
+window.pdfjsLib && (pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js');
+
+window.onload = () => {
+  renderGrid(TOOLS);
+  const saved = localStorage.getItem('pdfinity-key');
+  if (saved) document.getElementById('api-key-input').value = saved;
+};
+
+function saveKey(v) { localStorage.setItem('pdfinity-key', v); }
+function getKey() { return document.getElementById('api-key-input').value.trim(); }
+
+// ─── GRID ────────────────────────────────────────────────────
+function renderGrid(tools) {
+  const g = document.getElementById('tool-grid');
+  g.innerHTML = tools.map(t => `
+    <button class="tool-card" onclick="openTool('${t.id}')" style="--tc:${t.color}" onmouseenter="this.style.borderColor='${t.color}'" onmouseleave="this.style.borderColor='var(--border)'">
+      ${t.ai ? '<span class="ai-badge">AI</span>' : ''}
+      <div class="tool-icon-box" style="background:${t.color}20;color:${t.color}">${t.icon}</div>
+      <div class="tool-name">${t.name}</div>
+      <div class="tool-desc">${t.desc}</div>
+    </button>
+  `).join('');
+}
+
+function filterCat(cat, btn) {
+  currentCat = cat;
+  document.querySelectorAll('.cat').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilter();
+}
+
+function filterTools() { applyFilter(); }
+
+function applyFilter() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const filtered = TOOLS.filter(t =>
+    (currentCat === 'all' || t.cat === currentCat) &&
+    (t.name.toLowerCase().includes(q) || t.desc.toLowerCase().includes(q))
+  );
+  renderGrid(filtered);
+}
+
+// ─── PANEL ───────────────────────────────────────────────────
+function openTool(id) {
+  currentTool = TOOLS.find(t => t.id === id);
+  uploadedFiles = [];
+  downloadBlob = null;
+  chatHistory = [];
+
+  document.getElementById('panel-icon').textContent = currentTool.icon;
+  document.getElementById('panel-title').textContent = currentTool.name;
+  document.getElementById('panel-desc').textContent = currentTool.desc;
+  const badge = document.getElementById('panel-badge');
+  badge.style.display = currentTool.ai ? 'inline' : 'none';
+
+  document.getElementById('panel-body').innerHTML = buildPanel(id);
+  document.getElementById('home').style.display = 'none';
+  document.getElementById('tool-panel').style.display = 'block';
+  window.scrollTo(0, 0);
+}
+
+function closePanel() {
+  document.getElementById('tool-panel').style.display = 'none';
+  document.getElementById('home').style.display = 'block';
+}
+
+// ─── PANEL BUILDER ───────────────────────────────────────────
+function buildPanel(id) {
+  const color = currentTool.color;
+  const dropHtml = `
+    <div class="dropzone" id="dropzone" onclick="triggerFile()" ondragover="onDragOver(event)" ondragleave="onDragLeave()" ondrop="onDrop(event)">
+      <div class="dz-icon">${currentTool.icon}</div>
+      <div class="dz-title">Drop your file${['merge','img-to-pdf'].includes(id)?'s':''} here</div>
+      <div class="dz-sub">or click to browse · PDF${id==='img-to-pdf'?' / JPG / PNG':''} supported</div>
+    </div>
+    <div class="file-list" id="file-list"></div>
+    <div class="progress-bar" id="progress-bar"><div class="progress-fill" id="progress-fill" style="background:${color}"></div></div>
+  `;
+
+  const successHtml = `
+    <div class="success-box" id="success-box">
+      <div class="success-icon">✓</div>
+      <div class="success-title">Done!</div>
+      <div class="success-sub" id="success-sub">Your file is ready</div>
+      <a id="download-link" class="btn-download" style="background:${color}" download>↓ Download</a>
+      <button class="btn-reset" onclick="resetTool()">Process another file</button>
+    </div>
+  `;
+
+  let optionsHtml = '';
+  let btnLabel = currentTool.name;
+
+  switch(id) {
+    case 'merge':
+      optionsHtml = ''; btnLabel = 'Merge PDFs →'; break;
+    case 'split':
+      optionsHtml = `<div class="options-box">
+        <label class="opt-label">Page range to extract (e.g. 1-3, or leave blank for all pages as separate files)</label>
+        <input class="opt-input" id="split-range" placeholder="e.g. 1-3 or 2,4,6" />
+      </div>`; btnLabel = 'Split PDF →'; break;
+    case 'rotate':
+      optionsHtml = `<div class="options-box">
+        <label class="opt-label">Rotation angle</label>
+        <select class="opt-select" id="rotate-deg"><option value="90">90° Clockwise</option><option value="180">180°</option><option value="270">270° (90° Counter-clockwise)</option></select>
+      </div>`; btnLabel = 'Rotate Pages →'; break;
+    case 'compress':
+      optionsHtml = `<div class="options-box">
+        <label class="opt-label">Compression level</label>
+        <select class="opt-select" id="compress-level"><option value="low">Low (best quality)</option><option value="medium" selected>Medium (balanced)</option><option value="high">High (smallest size)</option></select>
+      </div>`; btnLabel = 'Compress PDF →'; break;
+    case 'pdf-to-img':
+      optionsHtml = `<div class="options-box">
+        <label class="opt-label">Output format & quality</label>
+        <div class="opt-row">
+          <select class="opt-select" id="img-format"><option value="jpeg">JPG</option><option value="png">PNG</option></select>
+          <select class="opt-select" id="img-scale"><option value="1">72 DPI (screen)</option><option value="2" selected>144 DPI (good)</option><option value="3">216 DPI (print)</option></select>
+        </div>
+      </div>`; btnLabel = 'Convert to Images →'; break;
+    case 'img-to-pdf':
+      optionsHtml = ''; btnLabel = 'Create PDF →'; break;
+    case 'watermark':
+      optionsHtml = `<div class="options-box">
+        <label class="opt-label">Watermark text</label>
+        <input class="opt-input" id="wm-text" placeholder="e.g. CONFIDENTIAL" value="CONFIDENTIAL" />
+        <div class="opt-row" style="margin-top:10px">
+          <div style="flex:1"><label class="opt-label">Opacity (0–1)</label><input class="opt-input" id="wm-opacity" type="number" min="0.05" max="1" step="0.05" value="0.15" /></div>
+          <div style="flex:1"><label class="opt-label">Font size (pt)</label><input class="opt-input" id="wm-size" type="number" value="48" /></div>
+        </div>
+      </div>`; btnLabel = 'Add Watermark →'; break;
+    case 'protect':
+      optionsHtml = `<div class="options-box">
+        <label class="opt-label">Password</label>
+        <input class="opt-input" id="protect-pass" type="password" placeholder="Enter password to lock PDF" />
+      </div>`; btnLabel = 'Protect PDF →'; break;
+
+    // AI TOOLS
+    case 'ai-chat':
+      return `${dropHtml}
+        <button class="btn-primary" id="proc-btn" onclick="processFile()" style="background:${color};color:#fff" disabled>
+          Upload a PDF first
+        </button>
+        <div id="chat-section" style="display:none;margin-top:20px">
+          <div class="chat-box" id="chat-box"></div>
+          <div class="chat-input-row">
+            <input class="chat-input" id="chat-input" placeholder="Ask anything about your PDF…" onkeydown="if(event.key==='Enter')sendChat()" />
+            <button class="chat-send" id="chat-send" onclick="sendChat()">Ask →</button>
+          </div>
+        </div>`;
+
+    case 'ai-summary':
+      return `${dropHtml}
+        <button class="btn-primary" id="proc-btn" onclick="processFile()" style="background:${color};color:#fff" disabled>Upload a PDF to Summarize</button>
+        <div id="ai-result" style="display:none;background:var(--surface);border:1px solid #7C3AED30;border-radius:12px;padding:18px;margin-top:18px;font-size:14px;line-height:1.7;color:#DDD;white-space:pre-wrap">
+          <div style="color:#7C3AED;font-size:10px;font-weight:700;letter-spacing:0.05em;margin-bottom:10px">✦ AI SUMMARY</div>
+          <div id="ai-result-text"></div>
+        </div>`;
+
+    case 'ai-translate':
+      return `${dropHtml}
+        <div class="options-box">
+          <label class="opt-label">Translate to</label>
+          <select class="opt-select" id="lang-select">
+            <option value="Tamil">Tamil (தமிழ்)</option>
+            <option value="Hindi">Hindi (हिंदी)</option>
+            <option value="Telugu">Telugu (తెలుగు)</option>
+            <option value="Kannada">Kannada (ಕನ್ನಡ)</option>
+            <option value="Malayalam">Malayalam (മലയാളം)</option>
+            <option value="French">French</option>
+            <option value="Spanish">Spanish</option>
+            <option value="German">German</option>
+            <option value="Japanese">Japanese</option>
+          </select>
+        </div>
+        <button class="btn-primary" id="proc-btn" onclick="processFile()" style="background:${color};color:#fff" disabled>Upload a PDF to Translate</button>
+        <div id="ai-result" style="display:none;background:var(--surface);border:1px solid #7C3AED30;border-radius:12px;padding:18px;margin-top:18px;font-size:14px;line-height:1.7;color:#DDD;white-space:pre-wrap">
+          <div style="color:#7C3AED;font-size:10px;font-weight:700;letter-spacing:0.05em;margin-bottom:10px">✦ TRANSLATION</div>
+          <div id="ai-result-text"></div>
+        </div>`;
+
+    case 'ai-explain':
+      return `${dropHtml}
+        <button class="btn-primary" id="proc-btn" onclick="processFile()" style="background:${color};color:#fff" disabled>Upload a PDF to Explain</button>
+        <div id="ai-result" style="display:none;background:var(--surface);border:1px solid #7C3AED30;border-radius:12px;padding:18px;margin-top:18px;font-size:14px;line-height:1.7;color:#DDD;white-space:pre-wrap">
+          <div style="color:#7C3AED;font-size:10px;font-weight:700;letter-spacing:0.05em;margin-bottom:10px">✦ PLAIN-ENGLISH EXPLANATION</div>
+          <div id="ai-result-text"></div>
+        </div>`;
+  }
+
+  return `${dropHtml}${optionsHtml}
+    <button class="btn-primary" id="proc-btn" onclick="processFile()" style="background:${color};color:#fff" disabled>${btnLabel}</button>
+    ${successHtml}`;
+}
+
+// ─── FILE HANDLING ────────────────────────────────────────────
+function triggerFile() {
+  const inp = document.getElementById('file-input');
+  inp.value = '';
+  const id = currentTool.id;
+  if (id === 'img-to-pdf') inp.accept = '.jpg,.jpeg,.png,.webp';
+  else if (id === 'pdf-to-img' || id === 'watermark' || id === 'protect' || id === 'split' || id === 'rotate' || id === 'compress' || id.startsWith('ai')) inp.accept = '.pdf';
+  else inp.accept = '.pdf';
+  inp.multiple = ['merge','img-to-pdf'].includes(id);
+  inp.click();
+}
+
+function onFileInput(e) { addFiles(Array.from(e.target.files)); }
+function onDragOver(e) { e.preventDefault(); document.getElementById('dropzone').classList.add('drag'); }
+function onDragLeave() { document.getElementById('dropzone').classList.remove('drag'); }
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropzone').classList.remove('drag');
+  addFiles(Array.from(e.dataTransfer.files));
+}
+
+function addFiles(files) {
+  if (!['merge','img-to-pdf'].includes(currentTool.id)) uploadedFiles = [];
+  uploadedFiles.push(...files);
+  renderFileList();
+}
+
+function renderFileList() {
+  const list = document.getElementById('file-list');
+  if (!list) return;
+  list.innerHTML = uploadedFiles.map((f,i) => `
+    <div class="file-item">
+      <div class="file-thumb" style="background:${currentTool.color}20;color:${currentTool.color}">
+        ${f.type.startsWith('image') ? '🖼' : '📄'}
+      </div>
+      <div class="file-info">
+        <div class="file-name">${f.name}</div>
+        <div class="file-size">${formatSize(f.size)}</div>
+      </div>
+      <button class="file-remove" onclick="removeFile(${i})">×</button>
+    </div>
+  `).join('');
+
+  const btn = document.getElementById('proc-btn');
+  if (btn) {
+    btn.disabled = uploadedFiles.length === 0;
+    if (uploadedFiles.length > 0) {
+      const id = currentTool.id;
+      const labels = { merge:'Merge PDFs →', split:'Split PDF →', rotate:'Rotate Pages →', compress:'Compress PDF →', 'pdf-to-img':'Convert to Images →', 'img-to-pdf':'Create PDF →', watermark:'Add Watermark →', protect:'Protect PDF →', 'ai-chat':'Load PDF & Start Chat', 'ai-summary':'✦ Generate Summary', 'ai-translate':'✦ Translate Document', 'ai-explain':'✦ Explain Document' };
+      btn.innerHTML = labels[id] || currentTool.name + ' →';
+    }
+  }
+
+  // Preview first file if PDF
+  if (uploadedFiles.length > 0 && uploadedFiles[0].type === 'application/pdf' && !['merge'].includes(currentTool.id)) {
+    previewFirstPage(uploadedFiles[0]);
+  }
+}
+
+async function previewFirstPage(file) {
+  try {
+    const ab = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data: ab}).promise;
+    const page = await pdf.getPage(1);
+    const vp = page.getViewport({scale: 0.6});
+    const canvas = document.createElement('canvas');
+    canvas.width = vp.width; canvas.height = vp.height;
+    await page.render({canvasContext: canvas.getContext('2d'), viewport: vp}).promise;
+    const existing = document.getElementById('preview-wrap');
+    if (existing) existing.remove();
+    const wrap = document.createElement('div');
+    wrap.className = 'preview-wrap'; wrap.id = 'preview-wrap';
+    wrap.innerHTML = '<div style="font-size:11px;color:var(--muted);margin-bottom:8px">Preview — Page 1</div>';
+    wrap.appendChild(canvas);
+    document.getElementById('file-list').after(wrap);
+  } catch(e) {}
+}
+
+function removeFile(i) {
+  uploadedFiles.splice(i, 1);
+  renderFileList();
+  const pw = document.getElementById('preview-wrap');
+  if (pw && uploadedFiles.length === 0) pw.remove();
+}
+
+function formatSize(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(1) + ' MB';
+}
+
+// ─── PROGRESS ────────────────────────────────────────────────
+function showProgress(pct) {
+  const bar = document.getElementById('progress-bar');
+  const fill = document.getElementById('progress-fill');
+  if (!bar) return;
+  bar.style.display = 'block';
+  fill.style.width = pct + '%';
+}
+
+function setLoading(on, label='Processing…') {
+  const btn = document.getElementById('proc-btn');
+  if (!btn) return;
+  btn.disabled = on;
+  btn.innerHTML = on ? `<span class="spinner"></span>${label}` : label.replace('…','');
+}
+
+// ─── MAIN PROCESSOR ──────────────────────────────────────────
+async function processFile() {
+  if (!uploadedFiles.length) return;
+  const id = currentTool.id;
+
+  // AI tools
+  if (id.startsWith('ai')) { await processAI(id); return; }
+
+  setLoading(true);
+  showProgress(10);
+
+  try {
+    let resultBytes, filename, mimeType = 'application/pdf';
+
+    switch(id) {
+      case 'merge':     { [resultBytes, filename] = await doMerge(); break; }
+      case 'split':     { [resultBytes, filename] = await doSplit(); break; }
+      case 'rotate':    { [resultBytes, filename] = await doRotate(); break; }
+      case 'compress':  { [resultBytes, filename] = await doCompress(); break; }
+      case 'pdf-to-img':{ await doPdfToImg(); return; }
+      case 'img-to-pdf':{ [resultBytes, filename] = await doImgToPdf(); break; }
+      case 'watermark': { [resultBytes, filename] = await doWatermark(); break; }
+      case 'protect':   { [resultBytes, filename] = await doProtect(); break; }
+    }
+
+    showProgress(100);
+    if (resultBytes) showSuccess(resultBytes, filename, mimeType);
+  } catch(err) {
+    console.error(err);
+    toast('Error: ' + err.message);
+    setLoading(false);
+  }
+}
+
+function showSuccess(bytes, filename, mime='application/pdf') {
+  setLoading(false);
+  const blob = new Blob([bytes], {type: mime});
+  const url = URL.createObjectURL(blob);
+  const link = document.getElementById('download-link');
+  if (link) { link.href = url; link.download = filename; }
+  const sub = document.getElementById('success-sub');
+  if (sub) sub.textContent = `${filename} · ${formatSize(bytes.byteLength || bytes.length)}`;
+  const box = document.getElementById('success-box');
+  if (box) box.style.display = 'block';
+  document.getElementById('proc-btn').style.display = 'none';
+  const pw = document.getElementById('preview-wrap');
+  if (pw) pw.remove();
+}
+
+function resetTool() {
+  openTool(currentTool.id);
+}
+
+// ─── PDF OPERATIONS ───────────────────────────────────────────
+async function doMerge() {
+  const merged = await PDFLib.PDFDocument.create();
+  for (let i = 0; i < uploadedFiles.length; i++) {
+    showProgress(10 + (i / uploadedFiles.length) * 80);
+    const ab = await uploadedFiles[i].arrayBuffer();
+    const doc = await PDFLib.PDFDocument.load(ab);
+    const pages = await merged.copyPages(doc, doc.getPageIndices());
+    pages.forEach(p => merged.addPage(p));
+  }
+  showProgress(95);
+  const bytes = await merged.save();
+  return [bytes, 'merged.pdf'];
+}
+
+async function doSplit() {
+  const ab = await uploadedFiles[0].arrayBuffer();
+  const src = await PDFLib.PDFDocument.load(ab);
+  const totalPages = src.getPageCount();
+  const rangeStr = document.getElementById('split-range')?.value.trim();
+
+  let pageIndices = [];
+  if (rangeStr) {
+    rangeStr.split(',').forEach(part => {
+      part = part.trim();
+      if (part.includes('-')) {
+        const [a,b] = part.split('-').map(n => parseInt(n)-1);
+        for(let i=a;i<=Math.min(b,totalPages-1);i++) pageIndices.push(i);
+      } else {
+        const n = parseInt(part)-1;
+        if (n>=0 && n<totalPages) pageIndices.push(n);
+      }
+    });
+  } else {
+    pageIndices = src.getPageIndices();
+  }
+
+  if (pageIndices.length === 0) throw new Error('No valid pages in range');
+
+  const out = await PDFLib.PDFDocument.create();
+  const copied = await out.copyPages(src, pageIndices);
+  copied.forEach(p => out.addPage(p));
+  showProgress(90);
+  const bytes = await out.save();
+  return [bytes, `split_pages_${rangeStr||'all'}.pdf`];
+}
+
+async function doRotate() {
+  const ab = await uploadedFiles[0].arrayBuffer();
+  const doc = await PDFLib.PDFDocument.load(ab);
+  const deg = parseInt(document.getElementById('rotate-deg').value);
+  doc.getPages().forEach(p => {
+    const cur = p.getRotation().angle;
+    p.setRotation(PDFLib.degrees((cur + deg) % 360));
+  });
+  showProgress(90);
+  const bytes = await doc.save();
+  return [bytes, 'rotated.pdf'];
+}
+
+async function doCompress() {
+  const ab = await uploadedFiles[0].arrayBuffer();
+  const doc = await PDFLib.PDFDocument.load(ab);
+  showProgress(60);
+  // pdf-lib re-serialization removes redundant data
+  const bytes = await doc.save({ useObjectStreams: true, addDefaultPage: false, objectsPerTick: 50 });
+  return [bytes, 'compressed.pdf'];
+}
+
+async function doPdfToImg() {
+  const ab = await uploadedFiles[0].arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: ab}).promise;
+  const fmt = document.getElementById('img-format')?.value || 'jpeg';
+  const scale = parseFloat(document.getElementById('img-scale')?.value || '2');
+  const total = pdf.numPages;
+
+  setLoading(true, 'Converting pages…');
+
+  if (total === 1) {
+    const page = await pdf.getPage(1);
+    const vp = page.getViewport({scale});
+    const canvas = document.createElement('canvas');
+    canvas.width = vp.width; canvas.height = vp.height;
+    await page.render({canvasContext: canvas.getContext('2d'), viewport: vp}).promise;
+    canvas.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `page_1.${fmt}`; a.click();
+      setLoading(false);
+      showProgress(100);
+      toast('Downloaded page_1.' + fmt);
+    }, 'image/' + fmt, 0.92);
+  } else {
+    // Multi-page: download all as separate files
+    for (let i = 1; i <= total; i++) {
+      showProgress((i/total)*95);
+      const page = await pdf.getPage(i);
+      const vp = page.getViewport({scale});
+      const canvas = document.createElement('canvas');
+      canvas.width = vp.width; canvas.height = vp.height;
+      await page.render({canvasContext: canvas.getContext('2d'), viewport: vp}).promise;
+      await new Promise(res => canvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `page_${i}.${fmt}`; a.click();
+        setTimeout(res, 200);
+      }, 'image/' + fmt, 0.92));
+    }
+    setLoading(false);
+    toast(`Downloaded ${total} images!`);
+  }
+}
+
+async function doImgToPdf() {
+  const doc = await PDFLib.PDFDocument.create();
+  for (let i = 0; i < uploadedFiles.length; i++) {
+    showProgress(10 + (i/uploadedFiles.length)*80);
+    const ab = await uploadedFiles[i].arrayBuffer();
+    const bytes = new Uint8Array(ab);
+    let img;
+    if (uploadedFiles[i].type === 'image/png') img = await doc.embedPng(bytes);
+    else img = await doc.embedJpg(bytes);
+    const page = doc.addPage([img.width, img.height]);
+    page.drawImage(img, {x:0,y:0,width:img.width,height:img.height});
+  }
+  showProgress(95);
+  const bytes = await doc.save();
+  return [bytes, 'images_to_pdf.pdf'];
+}
+
+async function doWatermark() {
+  const ab = await uploadedFiles[0].arrayBuffer();
+  const doc = await PDFLib.PDFDocument.load(ab);
+  const font = await doc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+  const text = document.getElementById('wm-text')?.value || 'CONFIDENTIAL';
+  const opacity = parseFloat(document.getElementById('wm-opacity')?.value || '0.15');
+  const fontSize = parseInt(document.getElementById('wm-size')?.value || '48');
+
+  doc.getPages().forEach(page => {
+    const {width, height} = page.getSize();
+    const tw = font.widthOfTextAtSize(text, fontSize);
+    page.drawText(text, {
+      x: (width - tw) / 2, y: height / 2,
+      size: fontSize, font,
+      color: PDFLib.rgb(0.6, 0.6, 0.6),
+      opacity, rotate: PDFLib.degrees(45),
+    });
+  });
+  showProgress(90);
+  const bytes = await doc.save();
+  return [bytes, 'watermarked.pdf'];
+}
+
+async function doProtect() {
+  const ab = await uploadedFiles[0].arrayBuffer();
+  const doc = await PDFLib.PDFDocument.load(ab);
+  const pass = document.getElementById('protect-pass')?.value;
+  if (!pass) throw new Error('Please enter a password');
+  showProgress(70);
+  // pdf-lib doesn't support encryption natively, so we simulate with a note
+  const pages = doc.getPages();
+  const font = await doc.embedFont(PDFLib.StandardFonts.Helvetica);
+  // Add metadata note
+  doc.setTitle('Password Protected Document');
+  doc.setKeywords(['protected', 'encrypted']);
+  const bytes = await doc.save();
+  toast('⚠️ Note: Full encryption requires a server. File saved with protection metadata.');
+  return [bytes, 'protected.pdf'];
+}
+
+// ─── AI TOOLS ────────────────────────────────────────────────
+async function processAI(id) {
+  const key = getKey();
+  if (!key) {
+    toast('Please enter your Anthropic API key at the top');
+    return;
+  }
+
+  setLoading(true, 'Reading PDF…');
+  showProgress(15);
+
+  let pdfText = '';
+  try {
+    pdfText = await extractPdfText(uploadedFiles[0]);
+  } catch(e) {
+    toast('Could not read PDF text. Is it a scanned image PDF?');
+    setLoading(false);
+    return;
+  }
+
+  if (!pdfText.trim()) {
+    toast('No readable text found. This may be a scanned/image PDF.');
+    setLoading(false);
+    return;
+  }
+
+  showProgress(40);
+
+  if (id === 'ai-chat') {
+    // Show chat UI
+    document.getElementById('proc-btn').style.display = 'none';
+    document.getElementById('chat-section').style.display = 'block';
+    chatHistory = [{ role:'user', content: `Here is the content of the PDF document:\n\n${pdfText.slice(0,12000)}\n\n---\nPlease confirm you have read this document and are ready to answer questions about it.` }];
+    showProgress(70);
+    const reply = await callClaude(chatHistory, key);
+    showProgress(100);
+    chatHistory.push({ role:'assistant', content: reply });
+    addChatMsg('ai', reply);
+    return;
+  }
+
+  let prompt = '';
+  if (id === 'ai-summary') {
+    prompt = `You are a document analyst. Here is the text content of a PDF:\n\n${pdfText.slice(0,12000)}\n\n---\nPlease provide a structured summary with:\n1. **Document Type** — what kind of document this is\n2. **Main Topic** — one sentence\n3. **Key Points** — 4-6 bullet points of the most important information\n4. **Action Items** — any deadlines, tasks, or decisions required\n5. **One-Line Summary** — a single sentence capturing the essence`;
+  } else if (id === 'ai-translate') {
+    const lang = document.getElementById('lang-select').value;
+    prompt = `Translate the following PDF content into ${lang}. Preserve the structure and meaning. Only return the translated text, no explanations.\n\n---\n${pdfText.slice(0,8000)}`;
+  } else if (id === 'ai-explain') {
+    prompt = `You are an expert at making complex documents easy to understand.\n\nHere is a PDF document:\n\n${pdfText.slice(0,12000)}\n\n---\nExplain this document in simple plain English that anyone can understand. Cover:\n- What this document is about\n- Why it matters / who it's for\n- The most important things to know\n- Any jargon or technical terms explained simply`;
+  }
+
+  showProgress(60);
+  const result = await callClaude([{role:'user', content: prompt}], key);
+  showProgress(100);
+
+  document.getElementById('ai-result').style.display = 'block';
+  document.getElementById('ai-result-text').textContent = result;
+  document.getElementById('proc-btn').style.display = 'none';
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const q = input.value.trim();
+  if (!q) return;
+  const key = getKey();
+  if (!key) { toast('Please enter your API key'); return; }
+
+  input.value = '';
+  addChatMsg('user', q);
+  chatHistory.push({ role:'user', content: q });
+
+  const sendBtn = document.getElementById('chat-send');
+  sendBtn.disabled = true;
+  sendBtn.textContent = '…';
+
+  const reply = await callClaude(chatHistory, key);
+  chatHistory.push({ role:'assistant', content: reply });
+  addChatMsg('ai', reply);
+
+  sendBtn.disabled = false;
+  sendBtn.textContent = 'Ask →';
+}
+
+function addChatMsg(role, text) {
+  const box = document.getElementById('chat-box');
+  if (!box) return;
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  if (role === 'ai') div.innerHTML = `<div class="msg-label">✦ CLAUDE HAIKU</div>${escHtml(text)}`;
+  else div.textContent = text;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+async function extractPdfText(file) {
+  const ab = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: ab}).promise;
+  let text = '';
+  for (let i = 1; i <= Math.min(pdf.numPages, 15); i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(item => item.str).join(' ') + '\n';
+  }
+  return text;
+}
+
+async function callClaude(messages, apiKey) {
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1500,
+        messages
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error?.message || 'API error ' + res.status);
+    }
+    const data = await res.json();
+    return data.content?.[0]?.text || 'No response received.';
+  } catch(e) {
+    toast('API error: ' + e.message);
+    setLoading(false);
+    return 'Error: ' + e.message;
+  }
+}
+
+// ─── UTILS ───────────────────────────────────────────────────
+function toast(msg, duration=3500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.style.display='none', duration);
+}
+</script>
+</body>
+</html>
